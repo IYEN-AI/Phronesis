@@ -1,0 +1,13 @@
+mod ac01_embed_search;
+mod ac02_grep_search;
+mod ac03_suggest_write;
+mod ac04_naming;
+mod ac05_persistence;
+mod ac07_move_rename;
+mod ac08_habit;
+mod ac09_warning_log;
+mod ac10_warning_query;
+mod ac11_append_only;
+mod ac12_meta_append;
+mod ac13_bootstrap;
+mod ac14_skills_append;
