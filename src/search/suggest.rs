@@ -4,7 +4,7 @@ use crate::search::vector_store::HnswStore;
 use crate::types::LocationCandidate;
 
 /// Suggest the best folder locations for a new action based on description.
-pub async fn suggest_location<P: EmbeddingProvider>(
+pub async fn suggest_location<P: EmbeddingProvider + ?Sized>(
     description: &str,
     provider: &P,
     store: &HnswStore,

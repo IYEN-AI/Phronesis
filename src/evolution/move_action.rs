@@ -7,7 +7,7 @@ use crate::search::vector_store::HnswStore;
 use crate::types::MoveResult;
 
 /// Move a file or folder, updating the embedding index if a folder is moved.
-pub async fn move_action<P: EmbeddingProvider>(
+pub async fn move_action<P: EmbeddingProvider + ?Sized>(
     data_root: &Path,
     old_path: &str,
     new_path: &str,

@@ -1,9 +1,53 @@
 use phronesis::bootstrap;
 use phronesis::config::Config;
-use phronesis::search::embedding::{EmbeddingProvider, OpenAIEmbedding};
+use phronesis::search::embedding::{EmbeddingProvider, LocalEmbedding, OpenAIEmbedding};
 use phronesis::search::vector_store::HnswStore;
 use phronesis::server::PhronesisServer;
 use rmcp::ServiceExt;
+
+async fn build_index(
+    data_root: &std::path::Path,
+    store: &mut HnswStore,
+    provider: &dyn EmbeddingProvider,
+) -> anyhow::Result<()> {
+    tracing::info!("Building initial embedding index from .meta.jsonl files");
+    for entry in std::fs::read_dir(data_root)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir()
+            && !path
+                .file_name()
+                .map_or(true, |n| n.to_string_lossy().starts_with('.'))
+        {
+            if let Ok(Some(description)) = phronesis::fs::meta::get_latest_description(&path) {
+                match provider.embed(&description).await {
+                    Ok(vec) => {
+                        let rel_path = path.file_name().unwrap().to_string_lossy().to_string();
+                        store.insert(rel_path, description, vec);
+                    }
+                    Err(e) => tracing::warn!("Failed to embed {}: {}", path.display(), e),
+                }
+            }
+        }
+    }
+    if let Err(e) = store.save() {
+        tracing::warn!("Failed to save initial index: {}", e);
+    }
+    Ok(())
+}
+
+async fn run_server(
+    config: Config,
+    store: HnswStore,
+    provider: impl EmbeddingProvider + 'static,
+) -> anyhow::Result<()> {
+    let server = PhronesisServer::new(config, store, provider);
+    tracing::info!("Starting Phronesis MCP server on stdio");
+    let transport = rmcp::transport::io::stdio();
+    let server_handle = server.serve(transport).await?;
+    server_handle.waiting().await?;
+    Ok(())
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -22,48 +66,20 @@ async fn main() -> anyhow::Result<()> {
         HnswStore::new(&index_dir)
     });
 
-    // If store is empty, build initial index from .meta.jsonl files
-    let provider = OpenAIEmbedding::new(
-        config.openai_api_key.clone(),
-        config.embedding_model.clone(),
-    );
-
-    if store.is_empty() {
-        tracing::info!("Building initial embedding index from .meta.jsonl files");
-        for entry in std::fs::read_dir(&config.data_root)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir()
-                && !path
-                    .file_name()
-                    .map_or(true, |n| n.to_string_lossy().starts_with('.'))
-            {
-                if let Ok(Some(description)) =
-                    phronesis::fs::meta::get_latest_description(&path)
-                {
-                    match provider.embed(&description).await {
-                        Ok(vec) => {
-                            let rel_path =
-                                path.file_name().unwrap().to_string_lossy().to_string();
-                            store.insert(rel_path, description, vec);
-                        }
-                        Err(e) => tracing::warn!("Failed to embed {}: {}", path.display(), e),
-                    }
-                }
-            }
+    if config.use_openai() {
+        let key = config.openai_api_key.clone().unwrap();
+        let provider = OpenAIEmbedding::new(key, config.embedding_model.clone());
+        tracing::info!("Using OpenAI embedding ({})", config.embedding_model);
+        if store.is_empty() {
+            build_index(&config.data_root, &mut store, &provider).await?;
         }
-        if let Err(e) = store.save() {
-            tracing::warn!("Failed to save initial index: {}", e);
+        run_server(config, store, provider).await
+    } else {
+        let provider = LocalEmbedding::new()?;
+        tracing::info!("Using local embedding (MultilingualE5Small, no API key needed)");
+        if store.is_empty() {
+            build_index(&config.data_root, &mut store, &provider).await?;
         }
+        run_server(config, store, provider).await
     }
-
-    // Create server and serve via stdio
-    let server = PhronesisServer::new(config, store, provider);
-    tracing::info!("Starting Phronesis MCP server on stdio");
-
-    let transport = rmcp::transport::io::stdio();
-    let server_handle = server.serve(transport).await?;
-    server_handle.waiting().await?;
-
-    Ok(())
 }

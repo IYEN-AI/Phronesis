@@ -63,6 +63,42 @@ impl EmbeddingProvider for OpenAIEmbedding {
     }
 }
 
+/// Local embedding provider using fastembed (ONNX, no API key needed).
+/// Uses MultilingualE5Small model (384 dimensions, 100+ languages including Korean).
+/// Model is downloaded automatically on first use (~100MB).
+pub struct LocalEmbedding {
+    model: std::sync::Mutex<fastembed::TextEmbedding>,
+}
+
+impl LocalEmbedding {
+    pub fn new() -> Result<Self> {
+        let options = fastembed::InitOptions::new(fastembed::EmbeddingModel::MultilingualE5Small)
+            .with_show_download_progress(true);
+        let model = fastembed::TextEmbedding::try_new(options)
+            .map_err(|e| crate::error::PhronesisError::Embedding(format!("Failed to init local embedding model: {}", e)))?;
+        Ok(Self {
+            model: std::sync::Mutex::new(model),
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl EmbeddingProvider for LocalEmbedding {
+    async fn embed(&self, text: &str) -> Result<Vec<f32>> {
+        let text = text.to_string();
+        let mut model = self.model.lock()
+            .map_err(|e| crate::error::PhronesisError::Embedding(format!("Lock error: {}", e)))?;
+        let embeddings = model.embed(vec![text], None)
+            .map_err(|e| crate::error::PhronesisError::Embedding(e.to_string()))?;
+        embeddings.into_iter().next()
+            .ok_or_else(|| crate::error::PhronesisError::Embedding("No embedding returned".into()))
+    }
+
+    fn dimensions(&self) -> usize {
+        384 // MultilingualE5Small
+    }
+}
+
 /// Mock embedding provider for testing. Uses hash-based deterministic vectors.
 #[cfg(any(test, feature = "test-utils"))]
 pub struct MockEmbeddingProvider {

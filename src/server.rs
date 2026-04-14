@@ -10,7 +10,7 @@ use tokio::sync::RwLock;
 use crate::config::Config;
 use crate::evolution::{habit, move_action, rename_action};
 use crate::fs::{action, meta, naming, warnings};
-use crate::search::embedding::{EmbeddingProvider, OpenAIEmbedding};
+use crate::search::embedding::EmbeddingProvider;
 use crate::search::{grep, suggest, vector_store::HnswStore};
 
 #[allow(dead_code)]
@@ -18,11 +18,11 @@ pub struct PhronesisServer {
     tool_router: ToolRouter<Self>,
     config: Config,
     store: Arc<RwLock<HnswStore>>,
-    provider: Arc<OpenAIEmbedding>,
+    provider: Arc<dyn EmbeddingProvider>,
 }
 
 impl PhronesisServer {
-    pub fn new(config: Config, store: HnswStore, provider: OpenAIEmbedding) -> Self {
+    pub fn new(config: Config, store: HnswStore, provider: impl EmbeddingProvider + 'static) -> Self {
         let server = Self {
             tool_router: Self::tool_router(),
             config,
