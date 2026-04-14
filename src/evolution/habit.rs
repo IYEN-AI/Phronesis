@@ -51,11 +51,7 @@ mod tests {
         // Create source file
         let dir = tmp.path().join("praxis/communication");
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(
-            dir.join("send_apology_email.jsonl"),
-            "{\"ts\":\"t1\"}\n",
-        )
-        .unwrap();
+        std::fs::write(dir.join("send_apology_email.jsonl"), "{\"ts\":\"t1\"}\n").unwrap();
 
         let result = create_habit(
             tmp.path(),
@@ -64,7 +60,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(result.source, "praxis/communication/send_apology_email.jsonl");
+        assert_eq!(
+            result.source,
+            "praxis/communication/send_apology_email.jsonl"
+        );
         assert_eq!(result.shortcut, "habits/quick_apology.jsonl");
 
         // Verify symlink works
@@ -83,5 +82,42 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let result = create_habit(tmp.path(), "nonexistent.jsonl", "shortcut.jsonl");
         assert!(result.is_err());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_create_habit_duplicate_fails() {
+        let tmp = TempDir::new().unwrap();
+
+        let source = tmp.path().join("source.jsonl");
+        std::fs::write(&source, "{\"ts\":\"t1\"}\n").unwrap();
+
+        create_habit(tmp.path(), "source.jsonl", "shortcut.jsonl").unwrap();
+        let result = create_habit(tmp.path(), "source.jsonl", "shortcut.jsonl");
+        assert!(result.is_err(), "Creating duplicate symlink should fail");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_create_habit_nested_shortcut() {
+        let tmp = TempDir::new().unwrap();
+
+        let source = tmp.path().join("praxis/action.jsonl");
+        std::fs::create_dir_all(source.parent().unwrap()).unwrap();
+        std::fs::write(&source, "{\"ts\":\"t1\"}\n").unwrap();
+
+        let result = create_habit(
+            tmp.path(),
+            "praxis/action.jsonl",
+            "habits/deep/nested/quick.jsonl",
+        )
+        .unwrap();
+
+        assert_eq!(result.shortcut, "habits/deep/nested/quick.jsonl");
+        assert!(tmp.path().join("habits/deep/nested/quick.jsonl").exists());
+        assert!(tmp
+            .path()
+            .join("habits/deep/nested/quick.jsonl")
+            .is_symlink());
     }
 }

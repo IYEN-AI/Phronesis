@@ -12,10 +12,7 @@ pub fn append_action(path: &Path, content: &serde_json::Value) -> Result<()> {
     }
 
     let line = serde_json::to_string(content)?;
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)?;
+    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
     writeln!(file, "{}", line)?;
     Ok(())
 }
@@ -104,10 +101,59 @@ mod tests {
     }
 
     #[test]
-    fn test_append_only_no_delete_api() {
-        // This test verifies that no public function in this module
-        // can delete, remove, overwrite, or truncate action file content.
-        // The only public functions are append_action and read_action.
-        // Neither modifies existing content.
+    fn test_append_only_preserves_existing_entries() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("verify_append.jsonl");
+
+        let entry1 = serde_json::json!({"ts": "t1", "data": "first"});
+        let entry2 = serde_json::json!({"ts": "t2", "data": "second"});
+        let entry3 = serde_json::json!({"ts": "t3", "data": "third"});
+
+        append_action(&path, &entry1).unwrap();
+        append_action(&path, &entry2).unwrap();
+        append_action(&path, &entry3).unwrap();
+
+        let entries = read_action(&path).unwrap();
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0]["data"], "first");
+        assert_eq!(entries[1]["data"], "second");
+        assert_eq!(entries[2]["data"], "third");
+
+        let raw = std::fs::read_to_string(&path).unwrap();
+        let line_count = raw.lines().filter(|l| !l.trim().is_empty()).count();
+        assert_eq!(line_count, 3, "Each append should produce exactly one line");
+    }
+
+    #[test]
+    fn test_append_creates_parent_directories() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("deep/nested/dir/action.jsonl");
+
+        let entry = serde_json::json!({"ts": "t1", "action": "test"});
+        append_action(&path, &entry).unwrap();
+
+        assert!(path.exists());
+        let entries = read_action(&path).unwrap();
+        assert_eq!(entries.len(), 1);
+    }
+
+    #[test]
+    fn test_read_empty_file() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("empty.jsonl");
+        std::fs::write(&path, "").unwrap();
+
+        let entries = read_action(&path).unwrap();
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn test_read_whitespace_only_file() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("whitespace.jsonl");
+        std::fs::write(&path, "\n\n  \n\n").unwrap();
+
+        let entries = read_action(&path).unwrap();
+        assert!(entries.is_empty());
     }
 }

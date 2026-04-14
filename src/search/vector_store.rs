@@ -94,9 +94,9 @@ impl HnswStore {
             .into_iter()
             .filter_map(|item| {
                 let idx = *item.value;
-                self.entries.get(idx).map(|entry| {
-                    (entry.clone(), item.distance)
-                })
+                self.entries
+                    .get(idx)
+                    .map(|entry| (entry.clone(), item.distance))
             })
             .collect()
     }
@@ -225,7 +225,11 @@ mod tests {
 
         store.insert("self".into(), "self management".into(), make_vec(1, 8));
         store.insert("praxis".into(), "external actions".into(), make_vec(2, 8));
-        store.insert("cognition".into(), "internal reasoning".into(), make_vec(3, 8));
+        store.insert(
+            "cognition".into(),
+            "internal reasoning".into(),
+            make_vec(3, 8),
+        );
 
         assert_eq!(store.len(), 3);
 
@@ -277,6 +281,118 @@ mod tests {
         let mut store = HnswStore::new(tmp.path());
         store.insert("a".into(), "old desc".into(), make_vec(1, 8));
         store.insert("a".into(), "new desc".into(), make_vec(2, 8));
-        assert_eq!(store.len(), 1); // No duplicate
+        assert_eq!(store.len(), 1);
+    }
+
+    #[test]
+    fn test_bulk_insert_and_search() {
+        let tmp = TempDir::new().unwrap();
+        let mut store = HnswStore::new(tmp.path());
+
+        for i in 0..100 {
+            store.insert(
+                format!("folder_{}", i),
+                format!("description {}", i),
+                make_vec(i, 16),
+            );
+        }
+        assert_eq!(store.len(), 100);
+
+        let results = store.search(&make_vec(50, 16), 5);
+        assert!(!results.is_empty());
+        assert!(results.len() <= 5);
+        assert_eq!(results[0].0.path, "folder_50");
+    }
+
+    #[test]
+    fn test_save_load_integrity() {
+        let tmp = TempDir::new().unwrap();
+        let index_dir = tmp.path().join(".index");
+
+        let mut store = HnswStore::new(&index_dir);
+        for i in 0..20 {
+            store.insert(format!("path_{}", i), format!("desc_{}", i), make_vec(i, 8));
+        }
+        store.save().unwrap();
+
+        let loaded = HnswStore::load(&index_dir).unwrap();
+        assert_eq!(loaded.len(), 20);
+
+        for i in 0..20 {
+            let results = loaded.search(&make_vec(i, 8), 1);
+            assert_eq!(
+                results[0].0.path,
+                format!("path_{}", i),
+                "Loaded store should find exact match for path_{}",
+                i
+            );
+        }
+    }
+
+    #[test]
+    fn test_remove_nonexistent() {
+        let tmp = TempDir::new().unwrap();
+        let mut store = HnswStore::new(tmp.path());
+        store.insert("a".into(), "desc".into(), make_vec(1, 8));
+        let removed = store.remove("nonexistent");
+        assert!(!removed);
+        assert_eq!(store.len(), 1);
+    }
+
+    #[test]
+    fn test_remove_all_entries() {
+        let tmp = TempDir::new().unwrap();
+        let mut store = HnswStore::new(tmp.path());
+        store.insert("a".into(), "desc a".into(), make_vec(1, 8));
+        store.insert("b".into(), "desc b".into(), make_vec(2, 8));
+
+        store.remove("a");
+        store.remove("b");
+
+        assert!(store.is_empty());
+        let results = store.search(&make_vec(1, 8), 5);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_load_empty_index() {
+        let tmp = TempDir::new().unwrap();
+        let index_dir = tmp.path().join(".nonexistent_index");
+        let store = HnswStore::load(&index_dir).unwrap();
+        assert!(store.is_empty());
+    }
+
+    #[test]
+    fn test_cosine_distance_self_is_zero() {
+        use instant_distance::Point;
+        let v = VectorPoint(vec![1.0, 0.0, 0.0]);
+        let dist = v.distance(&v);
+        assert!(
+            dist.abs() < 0.001,
+            "Self-distance should be ~0, got {}",
+            dist
+        );
+    }
+
+    #[test]
+    fn test_cosine_distance_orthogonal() {
+        use instant_distance::Point;
+        let v1 = VectorPoint(vec![1.0, 0.0]);
+        let v2 = VectorPoint(vec![0.0, 1.0]);
+        let dist = v1.distance(&v2);
+        assert!(
+            (dist - 1.0).abs() < 0.001,
+            "Orthogonal distance should be ~1, got {}",
+            dist
+        );
+    }
+
+    #[test]
+    fn test_cosine_distance_zero_vector() {
+        use instant_distance::Point;
+        let zero = VectorPoint(vec![0.0, 0.0, 0.0]);
+        let v = VectorPoint(vec![1.0, 2.0, 3.0]);
+        let dist = zero.distance(&v);
+        assert_eq!(dist, 1.0, "Zero vector distance should be 1.0");
     }
 }

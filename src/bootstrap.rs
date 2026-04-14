@@ -119,6 +119,60 @@ mod tests {
     fn test_bootstrap_is_idempotent() {
         let tmp = TempDir::new().unwrap();
         bootstrap(tmp.path()).unwrap();
-        bootstrap(tmp.path()).unwrap(); // Should not fail or overwrite
+        bootstrap(tmp.path()).unwrap();
+    }
+
+    #[test]
+    fn test_bootstrap_partial_recovery() {
+        let tmp = TempDir::new().unwrap();
+
+        std::fs::create_dir_all(tmp.path().join("self")).unwrap();
+        std::fs::create_dir_all(tmp.path().join("praxis")).unwrap();
+
+        bootstrap(tmp.path()).unwrap();
+
+        for (name, _) in PILLAR_SEEDS {
+            assert!(tmp.path().join(name).is_dir());
+            assert!(tmp.path().join(name).join(".meta.jsonl").exists());
+        }
+        assert!(tmp.path().join("skills.md").exists());
+    }
+
+    #[test]
+    fn test_bootstrap_meta_content_valid_json() {
+        let tmp = TempDir::new().unwrap();
+        bootstrap(tmp.path()).unwrap();
+
+        for (name, _) in PILLAR_SEEDS {
+            let meta_path = tmp.path().join(name).join(".meta.jsonl");
+            let content = std::fs::read_to_string(&meta_path).unwrap();
+            for line in content.lines() {
+                if line.trim().is_empty() {
+                    continue;
+                }
+                let parsed: serde_json::Value = serde_json::from_str(line)
+                    .unwrap_or_else(|e| panic!("Invalid JSON in {}: {} — line: {}", name, e, line));
+                assert!(
+                    parsed.get("description").is_some(),
+                    "Meta entry in {} should have 'description' field",
+                    name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_bootstrap_skills_contains_all_pillars() {
+        let tmp = TempDir::new().unwrap();
+        bootstrap(tmp.path()).unwrap();
+
+        let content = std::fs::read_to_string(tmp.path().join("skills.md")).unwrap();
+        for (name, _) in PILLAR_SEEDS {
+            assert!(
+                content.contains(&format!("/{}", name)),
+                "skills.md should mention /{}",
+                name
+            );
+        }
     }
 }

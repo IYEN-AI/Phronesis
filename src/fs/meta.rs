@@ -120,8 +120,46 @@ mod tests {
         append_meta(tmp.path(), "second").unwrap();
 
         let entries = read_meta(tmp.path()).unwrap();
-        // First entry is preserved, not overwritten
         assert_eq!(entries[0].description, "first");
         assert_eq!(entries.len(), 2);
+    }
+
+    #[test]
+    fn test_get_latest_description_no_meta() {
+        let tmp = TempDir::new().unwrap();
+        let desc = get_latest_description(tmp.path()).unwrap();
+        assert_eq!(desc, None);
+    }
+
+    #[test]
+    fn test_append_meta_has_updated_timestamp() {
+        let tmp = TempDir::new().unwrap();
+        append_meta(tmp.path(), "test").unwrap();
+
+        let entries = read_meta(tmp.path()).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert!(
+            entries[0].updated.is_some(),
+            "Appended meta should have 'updated' timestamp"
+        );
+        assert!(
+            entries[0].created.is_none(),
+            "Appended meta should not have 'created' (only bootstrap sets it)"
+        );
+    }
+
+    #[test]
+    fn test_meta_bulk_append() {
+        let tmp = TempDir::new().unwrap();
+
+        for i in 0..50 {
+            append_meta(tmp.path(), &format!("description {}", i)).unwrap();
+        }
+
+        let entries = read_meta(tmp.path()).unwrap();
+        assert_eq!(entries.len(), 50);
+
+        let latest = get_latest_description(tmp.path()).unwrap().unwrap();
+        assert_eq!(latest, "description 49");
     }
 }

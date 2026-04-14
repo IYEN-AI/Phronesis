@@ -28,20 +28,51 @@ impl Config {
     }
 
     pub fn use_openai(&self) -> bool {
-        self.openai_api_key.as_ref().map_or(false, |k| !k.is_empty())
+        self.openai_api_key
+            .as_ref()
+            .map_or(false, |k| !k.is_empty())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn config_reads_from_env() {
-        std::env::set_var("PHRONESIS_DATA_ROOT", "/tmp/phronesis-test");
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::remove_var("PHRONESIS_EMBEDDING_MODEL") };
+        unsafe { std::env::set_var("PHRONESIS_DATA_ROOT", "/tmp/phronesis-test") };
         let config = Config::from_env().unwrap();
         assert_eq!(config.data_root, PathBuf::from("/tmp/phronesis-test"));
         assert_eq!(config.embedding_model, "text-embedding-3-small");
+    }
+
+    #[test]
+    fn config_from_env_missing_data_root() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::remove_var("PHRONESIS_DATA_ROOT") };
+        let result = Config::from_env();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("PHRONESIS_DATA_ROOT"),
+            "Error should mention PHRONESIS_DATA_ROOT, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn config_custom_embedding_model() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::set_var("PHRONESIS_DATA_ROOT", "/tmp/test") };
+        unsafe { std::env::set_var("PHRONESIS_EMBEDDING_MODEL", "text-embedding-3-large") };
+        let config = Config::from_env().unwrap();
+        assert_eq!(config.embedding_model, "text-embedding-3-large");
+        unsafe { std::env::remove_var("PHRONESIS_EMBEDDING_MODEL") };
     }
 
     #[test]
@@ -66,5 +97,17 @@ mod tests {
             embedding_model: "text-embedding-3-small".into(),
         };
         assert!(!config_empty.use_openai());
+    }
+
+    #[test]
+    fn config_struct_fields() {
+        let config = Config {
+            data_root: PathBuf::from("/custom/path"),
+            openai_api_key: Some("key".into()),
+            embedding_model: "custom-model".into(),
+        };
+        assert_eq!(config.data_root, PathBuf::from("/custom/path"));
+        assert_eq!(config.openai_api_key, Some("key".into()));
+        assert_eq!(config.embedding_model, "custom-model");
     }
 }

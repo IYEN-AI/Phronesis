@@ -23,13 +23,12 @@ pub struct PhronesisServer {
 
 impl PhronesisServer {
     pub fn new(config: Config, store: HnswStore, provider: impl EmbeddingProvider + 'static) -> Self {
-        let server = Self {
+        Self {
             tool_router: Self::tool_router(),
             config,
             store: Arc::new(RwLock::new(store)),
             provider: Arc::new(provider),
-        };
-        server
+        }
     }
 
     fn data_root(&self) -> &PathBuf {

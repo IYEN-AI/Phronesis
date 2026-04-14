@@ -22,8 +22,13 @@ async fn build_index(
             if let Ok(Some(description)) = phronesis::fs::meta::get_latest_description(&path) {
                 match provider.embed(&description).await {
                     Ok(vec) => {
-                        let rel_path = path.file_name().unwrap().to_string_lossy().to_string();
-                        store.insert(rel_path, description, vec);
+                        let rel_path = path
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_default();
+                        if !rel_path.is_empty() {
+                            store.insert(rel_path, description, vec);
+                        }
                     }
                     Err(e) => tracing::warn!("Failed to embed {}: {}", path.display(), e),
                 }
@@ -67,7 +72,10 @@ async fn main() -> anyhow::Result<()> {
     });
 
     if config.use_openai() {
-        let key = config.openai_api_key.clone().unwrap();
+        let key = config
+            .openai_api_key
+            .clone()
+            .expect("openai_api_key must be Some when use_openai() is true");
         let provider = OpenAIEmbedding::new(key, config.embedding_model.clone());
         tracing::info!("Using OpenAI embedding ({})", config.embedding_model);
         if store.is_empty() {

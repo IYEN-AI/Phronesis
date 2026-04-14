@@ -43,7 +43,11 @@ mod tests {
     fn test_read_skills() {
         let tmp = TempDir::new().unwrap();
         let skills_path = tmp.path().join("skills.md");
-        std::fs::write(&skills_path, "# Skills\n<!-- AGENT APPENDABLE SECTION -->\n").unwrap();
+        std::fs::write(
+            &skills_path,
+            "# Skills\n<!-- AGENT APPENDABLE SECTION -->\n",
+        )
+        .unwrap();
 
         let content = read_skills(tmp.path()).unwrap();
         assert!(content.contains("# Skills"));
@@ -80,5 +84,57 @@ mod tests {
     fn test_read_nonexistent_skills() {
         let tmp = TempDir::new().unwrap();
         assert!(read_skills(tmp.path()).is_err());
+    }
+
+    #[test]
+    fn test_append_without_marker_fails() {
+        let tmp = TempDir::new().unwrap();
+        let skills_path = tmp.path().join("skills.md");
+        std::fs::write(&skills_path, "# Skills\nNo marker here\n").unwrap();
+
+        let result = append_to_skills(tmp.path(), "New content");
+        assert!(
+            result.is_err(),
+            "Appending without APPENDABLE_MARKER should fail"
+        );
+    }
+
+    #[test]
+    fn test_multiple_appends() {
+        let tmp = TempDir::new().unwrap();
+        let skills_path = tmp.path().join("skills.md");
+        std::fs::write(
+            &skills_path,
+            "# Skills\n<!-- AGENT APPENDABLE SECTION -->\n",
+        )
+        .unwrap();
+
+        append_to_skills(tmp.path(), "First lesson").unwrap();
+        append_to_skills(tmp.path(), "Second lesson").unwrap();
+        append_to_skills(tmp.path(), "Third lesson").unwrap();
+
+        let content = read_skills(tmp.path()).unwrap();
+        assert!(content.contains("First lesson"));
+        assert!(content.contains("Second lesson"));
+        assert!(content.contains("Third lesson"));
+        assert!(
+            content.contains("# Skills"),
+            "Original header should be preserved"
+        );
+    }
+
+    #[test]
+    fn test_append_empty_content() {
+        let tmp = TempDir::new().unwrap();
+        let skills_path = tmp.path().join("skills.md");
+        std::fs::write(
+            &skills_path,
+            "# Skills\n<!-- AGENT APPENDABLE SECTION -->\n",
+        )
+        .unwrap();
+
+        append_to_skills(tmp.path(), "").unwrap();
+        let content = read_skills(tmp.path()).unwrap();
+        assert!(content.contains("# Skills"));
     }
 }

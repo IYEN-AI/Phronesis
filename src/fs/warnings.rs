@@ -104,7 +104,9 @@ mod tests {
     #[test]
     fn test_defensive_parsing() {
         let tmp = TempDir::new().unwrap();
-        let path = tmp.path().join("reflection/warnings/naming_violations.jsonl");
+        let path = tmp
+            .path()
+            .join("reflection/warnings/naming_violations.jsonl");
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(
             &path,
@@ -114,5 +116,61 @@ mod tests {
 
         let warnings = get_warnings(tmp.path(), None).unwrap();
         assert_eq!(warnings.len(), 1);
+    }
+
+    #[test]
+    fn test_bulk_warnings() {
+        let tmp = TempDir::new().unwrap();
+
+        for i in 0..100 {
+            let w = Warning {
+                ts: format!("2026-04-14T{:02}:00:00Z", i % 24),
+                file_path: format!("/praxis/bad_{}.txt", i),
+                message: format!("Bad name {}", i),
+                rule_violated: "naming_convention".into(),
+            };
+            log_warning(tmp.path(), &w).unwrap();
+        }
+
+        let all = get_warnings(tmp.path(), None).unwrap();
+        assert_eq!(all.len(), 100);
+    }
+
+    #[test]
+    fn test_since_filter_boundary() {
+        let tmp = TempDir::new().unwrap();
+
+        let w = Warning {
+            ts: "2026-04-14T10:00:00Z".into(),
+            file_path: "/test".into(),
+            message: "msg".into(),
+            rule_violated: "naming_convention".into(),
+        };
+        log_warning(tmp.path(), &w).unwrap();
+
+        let exact = get_warnings(tmp.path(), Some("2026-04-14T10:00:00Z")).unwrap();
+        assert!(
+            exact.is_empty(),
+            "since filter uses > not >=, so exact match should be excluded"
+        );
+
+        let before = get_warnings(tmp.path(), Some("2026-04-14T09:59:59Z")).unwrap();
+        assert_eq!(before.len(), 1);
+    }
+
+    #[test]
+    fn test_since_filter_future_timestamp() {
+        let tmp = TempDir::new().unwrap();
+
+        let w = Warning {
+            ts: "2026-04-14T10:00:00Z".into(),
+            file_path: "/test".into(),
+            message: "msg".into(),
+            rule_violated: "naming_convention".into(),
+        };
+        log_warning(tmp.path(), &w).unwrap();
+
+        let future = get_warnings(tmp.path(), Some("2099-01-01T00:00:00Z")).unwrap();
+        assert!(future.is_empty());
     }
 }

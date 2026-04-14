@@ -132,4 +132,52 @@ mod tests {
         let result = move_action(tmp.path(), "nope", "dest", &mut store, &provider).await;
         assert!(result.is_err());
     }
+
+    #[tokio::test]
+    async fn test_move_to_nested_destination() {
+        let tmp = TempDir::new().unwrap();
+        let provider = MockEmbeddingProvider::new(8);
+        let mut store = HnswStore::new(&tmp.path().join(".index"));
+
+        let src = tmp.path().join("source.jsonl");
+        std::fs::write(&src, "{\"ts\":\"t1\"}\n").unwrap();
+
+        let result = move_action(
+            tmp.path(),
+            "source.jsonl",
+            "deep/nested/dir/moved.jsonl",
+            &mut store,
+            &provider,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.new_path, "deep/nested/dir/moved.jsonl");
+        assert!(tmp.path().join("deep/nested/dir/moved.jsonl").exists());
+        assert!(!tmp.path().join("source.jsonl").exists());
+    }
+
+    #[tokio::test]
+    async fn test_move_preserves_file_content() {
+        let tmp = TempDir::new().unwrap();
+        let provider = MockEmbeddingProvider::new(8);
+        let mut store = HnswStore::new(&tmp.path().join(".index"));
+
+        let content = "{\"ts\":\"t1\",\"data\":\"preserved\"}\n{\"ts\":\"t2\",\"data\":\"also preserved\"}\n";
+        let src = tmp.path().join("original.jsonl");
+        std::fs::write(&src, content).unwrap();
+
+        move_action(
+            tmp.path(),
+            "original.jsonl",
+            "moved.jsonl",
+            &mut store,
+            &provider,
+        )
+        .await
+        .unwrap();
+
+        let moved_content = std::fs::read_to_string(tmp.path().join("moved.jsonl")).unwrap();
+        assert_eq!(moved_content, content);
+    }
 }

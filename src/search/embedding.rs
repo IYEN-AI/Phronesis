@@ -67,7 +67,7 @@ impl EmbeddingProvider for OpenAIEmbedding {
 /// Uses MultilingualE5Small model (384 dimensions, 100+ languages including Korean).
 /// Model is downloaded automatically on first use (~100MB).
 pub struct LocalEmbedding {
-    model: std::sync::Mutex<fastembed::TextEmbedding>,
+    model: std::sync::Arc<std::sync::Mutex<fastembed::TextEmbedding>>,
 }
 
 impl LocalEmbedding {
@@ -77,7 +77,7 @@ impl LocalEmbedding {
         let model = fastembed::TextEmbedding::try_new(options)
             .map_err(|e| crate::error::PhronesisError::Embedding(format!("Failed to init local embedding model: {}", e)))?;
         Ok(Self {
-            model: std::sync::Mutex::new(model),
+            model: std::sync::Arc::new(std::sync::Mutex::new(model)),
         })
     }
 }
@@ -86,12 +86,17 @@ impl LocalEmbedding {
 impl EmbeddingProvider for LocalEmbedding {
     async fn embed(&self, text: &str) -> Result<Vec<f32>> {
         let text = text.to_string();
-        let mut model = self.model.lock()
-            .map_err(|e| crate::error::PhronesisError::Embedding(format!("Lock error: {}", e)))?;
-        let embeddings = model.embed(vec![text], None)
-            .map_err(|e| crate::error::PhronesisError::Embedding(e.to_string()))?;
-        embeddings.into_iter().next()
-            .ok_or_else(|| crate::error::PhronesisError::Embedding("No embedding returned".into()))
+        let model = self.model.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut model = model.lock()
+                .map_err(|e| crate::error::PhronesisError::Embedding(format!("Lock error: {}", e)))?;
+            let embeddings = model.embed(vec![text], None)
+                .map_err(|e| crate::error::PhronesisError::Embedding(e.to_string()))?;
+            embeddings.into_iter().next()
+                .ok_or_else(|| crate::error::PhronesisError::Embedding("No embedding returned".into()))
+        })
+        .await
+        .map_err(|e| crate::error::PhronesisError::Embedding(format!("Task join error: {}", e)))?
     }
 
     fn dimensions(&self) -> usize {
@@ -173,5 +178,42 @@ mod tests {
         let v = provider.embed("test").await.unwrap();
         let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
         assert!((norm - 1.0).abs() < 0.01);
+    }
+
+    #[tokio::test]
+    async fn test_mock_embedding_dimension_matches() {
+        for dims in [1, 4, 128, 384, 1536] {
+            let provider = MockEmbeddingProvider::new(dims);
+            let v = provider.embed("dimension test").await.unwrap();
+            assert_eq!(v.len(), dims, "Output dimension should match requested {}", dims);
+            assert_eq!(provider.dimensions(), dims);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_mock_embedding_empty_text() {
+        let provider = MockEmbeddingProvider::new(8);
+        let v = provider.embed("").await.unwrap();
+        assert_eq!(v.len(), 8);
+        let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+        assert!((norm - 1.0).abs() < 0.01, "Even empty text should produce a normalized vector");
+    }
+
+    #[tokio::test]
+    async fn test_mock_embedding_long_text() {
+        let provider = MockEmbeddingProvider::new(8);
+        let long_text = "a".repeat(100_000);
+        let v = provider.embed(&long_text).await.unwrap();
+        assert_eq!(v.len(), 8);
+    }
+
+    #[tokio::test]
+    async fn test_mock_embedding_unicode_text() {
+        let provider = MockEmbeddingProvider::new(8);
+        let v1 = provider.embed("한국어 테스트").await.unwrap();
+        let v2 = provider.embed("日本語テスト").await.unwrap();
+        assert_eq!(v1.len(), 8);
+        assert_eq!(v2.len(), 8);
+        assert_ne!(v1, v2, "Different unicode texts should produce different vectors");
     }
 }

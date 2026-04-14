@@ -56,7 +56,56 @@ mod tests {
 
     #[test]
     fn test_unicode_names_rejected() {
-        // Unicode characters in filename are not part of the convention
         assert!(validate_name("보내다_이메일.jsonl", "/test").is_some());
+    }
+
+    #[test]
+    fn test_starts_with_digit() {
+        assert!(validate_name("1send_email.jsonl", "/test").is_some());
+        assert!(validate_name("0_action.jsonl", "/test").is_some());
+    }
+
+    #[test]
+    fn test_consecutive_underscores() {
+        assert!(validate_name("send__email.jsonl", "/test").is_some());
+    }
+
+    #[test]
+    fn test_trailing_underscore() {
+        assert!(validate_name("send_email_.jsonl", "/test").is_some());
+    }
+
+    #[test]
+    fn test_very_long_name() {
+        let long_name = format!("{}_{}.jsonl", "a".repeat(100), "b".repeat(100));
+        assert!(
+            validate_name(&long_name, "/test").is_none(),
+            "Long but valid name should pass"
+        );
+    }
+
+    #[test]
+    fn test_minimal_valid_name() {
+        assert!(validate_name("a_b.jsonl", "/test").is_none());
+    }
+
+    #[test]
+    fn test_numbers_in_segments() {
+        assert!(validate_name("handle_error42.jsonl", "/test").is_none());
+        assert!(validate_name("retry3_connection.jsonl", "/test").is_none());
+    }
+
+    #[test]
+    fn test_only_extension() {
+        assert!(validate_name(".jsonl", "/test").is_some());
+    }
+
+    #[test]
+    fn test_warning_fields_populated() {
+        let warning = validate_name("BAD", "/some/path").unwrap();
+        assert_eq!(warning.file_path, "/some/path");
+        assert_eq!(warning.rule_violated, "naming_convention");
+        assert!(!warning.message.is_empty());
+        assert!(!warning.ts.is_empty());
     }
 }
