@@ -15,12 +15,14 @@ pub fn validate_name(filename: &str, file_path: &str) -> Option<Warning> {
         None
     } else {
         Some(Warning {
-            ts: chrono::Utc::now().to_rfc3339(),
-            file_path: file_path.to_string(),
+            code: "naming_convention".to_string(),
             message: format!(
                 "Filename '{}' does not match naming convention: verb_object[_method].jsonl",
                 filename
             ),
+            path: file_path.to_string(),
+            ts: chrono::Utc::now().to_rfc3339(),
+            file_path: file_path.to_string(),
             rule_violated: "naming_convention".to_string(),
         })
     }

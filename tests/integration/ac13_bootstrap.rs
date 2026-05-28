@@ -8,7 +8,14 @@ fn ac13_bootstrap_creates_full_structure() {
     bootstrap::bootstrap(tmp.path()).unwrap();
 
     // All 6 pillar directories exist
-    for pillar in ["self", "perception", "cognition", "praxis", "evolution", "reflection"] {
+    for pillar in [
+        "self",
+        "perception",
+        "cognition",
+        "praxis",
+        "evolution",
+        "reflection",
+    ] {
         let dir = tmp.path().join(pillar);
         assert!(dir.is_dir(), "Missing pillar directory: {}", pillar);
 
@@ -18,7 +25,11 @@ fn ac13_bootstrap_creates_full_structure() {
 
         // Meta contains a description
         let content = std::fs::read_to_string(&meta).unwrap();
-        assert!(!content.trim().is_empty(), "Empty .meta.jsonl in {}", pillar);
+        assert!(
+            !content.trim().is_empty(),
+            "Empty .meta.jsonl in {}",
+            pillar
+        );
     }
 
     // skills.md exists with seed content

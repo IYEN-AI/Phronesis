@@ -16,7 +16,14 @@ async fn ac05_cross_session_persistence() {
     let mut store = HnswStore::new(&tmp.path().join(".index"));
 
     // Index pillars
-    for name in ["self", "perception", "cognition", "praxis", "evolution", "reflection"] {
+    for name in [
+        "self",
+        "perception",
+        "cognition",
+        "praxis",
+        "evolution",
+        "reflection",
+    ] {
         let desc = meta::get_latest_description(&tmp.path().join(name))
             .unwrap()
             .unwrap();
@@ -41,8 +48,7 @@ async fn ac05_cross_session_persistence() {
     assert!(!store2.is_empty());
 
     // grep_search finds the file
-    let grep_results =
-        grep::grep_search(&tmp.path().join("praxis"), "complaint", None).unwrap();
+    let grep_results = grep::grep_search(&tmp.path().join("praxis"), "complaint", None).unwrap();
     assert!(!grep_results.is_empty());
 
     // embed_search finds the folder

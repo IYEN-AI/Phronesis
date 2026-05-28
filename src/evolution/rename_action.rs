@@ -43,6 +43,8 @@ pub fn rename_action(data_root: &Path, file_path: &str, new_name: &str) -> Resul
         .to_string();
 
     Ok(RenameResult {
+        old_path: file_path.to_string(),
+        new_path: new_path_str,
         old_name,
         new_name: new_name.to_string(),
         warning,

@@ -74,8 +74,12 @@ impl LocalEmbedding {
     pub fn new() -> Result<Self> {
         let options = fastembed::InitOptions::new(fastembed::EmbeddingModel::MultilingualE5Small)
             .with_show_download_progress(true);
-        let model = fastembed::TextEmbedding::try_new(options)
-            .map_err(|e| crate::error::PhronesisError::Embedding(format!("Failed to init local embedding model: {}", e)))?;
+        let model = fastembed::TextEmbedding::try_new(options).map_err(|e| {
+            crate::error::PhronesisError::Embedding(format!(
+                "Failed to init local embedding model: {}",
+                e
+            ))
+        })?;
         Ok(Self {
             model: std::sync::Arc::new(std::sync::Mutex::new(model)),
         })
@@ -88,12 +92,15 @@ impl EmbeddingProvider for LocalEmbedding {
         let text = text.to_string();
         let model = self.model.clone();
         tokio::task::spawn_blocking(move || {
-            let mut model = model.lock()
-                .map_err(|e| crate::error::PhronesisError::Embedding(format!("Lock error: {}", e)))?;
-            let embeddings = model.embed(vec![text], None)
+            let mut model = model.lock().map_err(|e| {
+                crate::error::PhronesisError::Embedding(format!("Lock error: {}", e))
+            })?;
+            let embeddings = model
+                .embed(vec![text], None)
                 .map_err(|e| crate::error::PhronesisError::Embedding(e.to_string()))?;
-            embeddings.into_iter().next()
-                .ok_or_else(|| crate::error::PhronesisError::Embedding("No embedding returned".into()))
+            embeddings.into_iter().next().ok_or_else(|| {
+                crate::error::PhronesisError::Embedding("No embedding returned".into())
+            })
         })
         .await
         .map_err(|e| crate::error::PhronesisError::Embedding(format!("Task join error: {}", e)))?
@@ -185,7 +192,12 @@ mod tests {
         for dims in [1, 4, 128, 384, 1536] {
             let provider = MockEmbeddingProvider::new(dims);
             let v = provider.embed("dimension test").await.unwrap();
-            assert_eq!(v.len(), dims, "Output dimension should match requested {}", dims);
+            assert_eq!(
+                v.len(),
+                dims,
+                "Output dimension should match requested {}",
+                dims
+            );
             assert_eq!(provider.dimensions(), dims);
         }
     }
@@ -196,7 +208,10 @@ mod tests {
         let v = provider.embed("").await.unwrap();
         assert_eq!(v.len(), 8);
         let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((norm - 1.0).abs() < 0.01, "Even empty text should produce a normalized vector");
+        assert!(
+            (norm - 1.0).abs() < 0.01,
+            "Even empty text should produce a normalized vector"
+        );
     }
 
     #[tokio::test]
@@ -214,6 +229,9 @@ mod tests {
         let v2 = provider.embed("日本語テスト").await.unwrap();
         assert_eq!(v1.len(), 8);
         assert_eq!(v2.len(), 8);
-        assert_ne!(v1, v2, "Different unicode texts should produce different vectors");
+        assert_ne!(
+            v1, v2,
+            "Different unicode texts should produce different vectors"
+        );
     }
 }
