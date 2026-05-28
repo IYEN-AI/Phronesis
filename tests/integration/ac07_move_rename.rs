@@ -40,10 +40,14 @@ async fn ac07_move_folder_updates_index() {
     // Old path should NOT be found
     let query_vec = provider.embed("커뮤니케이션 행동").await.unwrap();
     let results = store.search(&query_vec, 5);
-    assert!(results.iter().all(|r| r.0.path != "praxis/old_communication"));
+    assert!(results
+        .iter()
+        .all(|r| r.0.path != "praxis/old_communication"));
 
     // New path SHOULD be found
-    assert!(results.iter().any(|r| r.0.path == "praxis/new_communication"));
+    assert!(results
+        .iter()
+        .any(|r| r.0.path == "praxis/new_communication"));
 }
 
 /// AC-7: file rename works
@@ -56,9 +60,12 @@ fn ac07_rename_file() {
     let file = dir.join("old_action.jsonl");
     action::append_action(&file, &serde_json::json!({"ts": "t1"})).unwrap();
 
-    let result =
-        rename_action::rename_action(tmp.path(), "praxis/old_action.jsonl", "send_reply_fast.jsonl")
-            .unwrap();
+    let result = rename_action::rename_action(
+        tmp.path(),
+        "praxis/old_action.jsonl",
+        "send_reply_fast.jsonl",
+    )
+    .unwrap();
 
     assert_eq!(result.new_name, "send_reply_fast.jsonl");
     assert!(result.warning.is_none()); // Valid name

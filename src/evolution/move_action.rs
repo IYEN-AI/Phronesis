@@ -49,6 +49,7 @@ pub async fn move_action<P: EmbeddingProvider + ?Sized>(
     Ok(MoveResult {
         old_path: old_path.to_string(),
         new_path: new_path.to_string(),
+        moved: true,
     })
 }
 
@@ -90,10 +91,8 @@ mod tests {
 
         // Index should have new path, not old
         assert_eq!(store.len(), 1);
-        let search_results = store.search(
-            &provider.embed("test folder description").await.unwrap(),
-            1,
-        );
+        let search_results =
+            store.search(&provider.embed("test folder description").await.unwrap(), 1);
         assert_eq!(search_results[0].0.path, "new_folder");
     }
 
@@ -163,7 +162,8 @@ mod tests {
         let provider = MockEmbeddingProvider::new(8);
         let mut store = HnswStore::new(&tmp.path().join(".index"));
 
-        let content = "{\"ts\":\"t1\",\"data\":\"preserved\"}\n{\"ts\":\"t2\",\"data\":\"also preserved\"}\n";
+        let content =
+            "{\"ts\":\"t1\",\"data\":\"preserved\"}\n{\"ts\":\"t2\",\"data\":\"also preserved\"}\n";
         let src = tmp.path().join("original.jsonl");
         std::fs::write(&src, content).unwrap();
 

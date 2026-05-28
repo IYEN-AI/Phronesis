@@ -1,8 +1,8 @@
 use phronesis::bootstrap;
+use phronesis::fs::meta;
+use phronesis::search::embedding::EmbeddingProvider;
 use phronesis::search::embedding::MockEmbeddingProvider;
 use phronesis::search::vector_store::HnswStore;
-use phronesis::search::embedding::EmbeddingProvider;
-use phronesis::fs::meta;
 use tempfile::TempDir;
 
 /// AC-1: embed_search returns correct folder in Top-K
@@ -29,8 +29,14 @@ async fn ac01_embed_search_returns_correct_folder() {
 
     // Index all folders
     for (path, desc) in [
-        ("cognition/logical_reasoning", "논리적 추론과 분석적 사고 프로세스"),
-        ("praxis/communication/email", "이메일을 통한 공식적 커뮤니케이션"),
+        (
+            "cognition/logical_reasoning",
+            "논리적 추론과 분석적 사고 프로세스",
+        ),
+        (
+            "praxis/communication/email",
+            "이메일을 통한 공식적 커뮤니케이션",
+        ),
         ("perception/user_intent", "사용자의 의도와 감정 분석"),
     ] {
         let vec = provider.embed(desc).await.unwrap();
@@ -38,7 +44,10 @@ async fn ac01_embed_search_returns_correct_folder() {
     }
 
     // Search for "논리적 추론" should return cognition/logical_reasoning in top 3
-    let query_vec = provider.embed("논리적 추론과 분석적 사고 프로세스").await.unwrap();
+    let query_vec = provider
+        .embed("논리적 추론과 분석적 사고 프로세스")
+        .await
+        .unwrap();
     let results = store.search(&query_vec, 3);
 
     assert!(!results.is_empty());

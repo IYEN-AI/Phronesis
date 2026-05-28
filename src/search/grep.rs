@@ -43,6 +43,7 @@ pub fn grep_search(
         if regex.is_match(filename) {
             matched_lines.push(MatchedLine {
                 line_number: 0,
+                line: filename.to_string(),
                 content: filename.to_string(),
                 is_filename_match: true,
             });
@@ -57,6 +58,7 @@ pub fn grep_search(
                         if regex.is_match(&line) {
                             matched_lines.push(MatchedLine {
                                 line_number: line_num + 1,
+                                line: line.clone(),
                                 content: line,
                                 is_filename_match: false,
                             });

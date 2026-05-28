@@ -14,7 +14,14 @@ async fn ac03_suggest_and_write_cycle() {
     let mut store = HnswStore::new(&tmp.path().join(".index"));
 
     // Index the 6 pillars
-    for name in ["self", "perception", "cognition", "praxis", "evolution", "reflection"] {
+    for name in [
+        "self",
+        "perception",
+        "cognition",
+        "praxis",
+        "evolution",
+        "reflection",
+    ] {
         let desc = meta::get_latest_description(&tmp.path().join(name))
             .unwrap()
             .unwrap();

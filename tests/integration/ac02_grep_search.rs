@@ -21,12 +21,16 @@ fn ac02_grep_finds_by_name_and_content() {
     // Find by filename pattern
     let results = grep::grep_search(tmp.path().join("praxis").as_path(), "apology", None).unwrap();
     assert!(!results.is_empty());
-    assert!(results.iter().any(|r| r.matched_lines.iter().any(|m| m.is_filename_match)));
+    assert!(results
+        .iter()
+        .any(|r| r.matched_lines.iter().any(|m| m.is_filename_match)));
 
     // Find by content pattern
     let results = grep::grep_search(tmp.path().join("praxis").as_path(), "공감", None).unwrap();
     assert!(!results.is_empty());
-    assert!(results.iter().any(|r| r.matched_lines.iter().any(|m| !m.is_filename_match)));
+    assert!(results
+        .iter()
+        .any(|r| r.matched_lines.iter().any(|m| !m.is_filename_match)));
 
     // Verify max_results default caps at 50
     let results = grep::grep_search(tmp.path().join("praxis").as_path(), ".", None).unwrap();

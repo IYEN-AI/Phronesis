@@ -36,12 +36,26 @@ mod tests {
         let mut store = HnswStore::new(tmp.path());
 
         let v1 = provider.embed("self management").await.unwrap();
-        let v2 = provider.embed("external actions and communication").await.unwrap();
-        let v3 = provider.embed("internal reasoning and logic").await.unwrap();
+        let v2 = provider
+            .embed("external actions and communication")
+            .await
+            .unwrap();
+        let v3 = provider
+            .embed("internal reasoning and logic")
+            .await
+            .unwrap();
 
         store.insert("self".into(), "self management".into(), v1);
-        store.insert("praxis".into(), "external actions and communication".into(), v2);
-        store.insert("cognition".into(), "internal reasoning and logic".into(), v3);
+        store.insert(
+            "praxis".into(),
+            "external actions and communication".into(),
+            v2,
+        );
+        store.insert(
+            "cognition".into(),
+            "internal reasoning and logic".into(),
+            v3,
+        );
 
         let suggestions = suggest_location("reasoning about logic", &provider, &store, 3)
             .await

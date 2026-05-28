@@ -71,12 +71,16 @@ mod tests {
     fn test_log_and_get_warnings() {
         let tmp = TempDir::new().unwrap();
         let w1 = Warning {
+            code: "naming_convention".into(),
+            path: "/praxis/bad.txt".into(),
             ts: "2026-04-14T10:00:00Z".into(),
             file_path: "/praxis/bad.txt".into(),
             message: "Bad name".into(),
             rule_violated: "naming_convention".into(),
         };
         let w2 = Warning {
+            code: "naming_convention".into(),
+            path: "/praxis/also_bad.txt".into(),
             ts: "2026-04-14T11:00:00Z".into(),
             file_path: "/praxis/also_bad.txt".into(),
             message: "Also bad".into(),
@@ -124,6 +128,8 @@ mod tests {
 
         for i in 0..100 {
             let w = Warning {
+                code: "naming_convention".into(),
+                path: format!("/praxis/bad_{}.txt", i),
                 ts: format!("2026-04-14T{:02}:00:00Z", i % 24),
                 file_path: format!("/praxis/bad_{}.txt", i),
                 message: format!("Bad name {}", i),
@@ -141,6 +147,8 @@ mod tests {
         let tmp = TempDir::new().unwrap();
 
         let w = Warning {
+            code: "naming_convention".into(),
+            path: "/test".into(),
             ts: "2026-04-14T10:00:00Z".into(),
             file_path: "/test".into(),
             message: "msg".into(),
@@ -163,6 +171,8 @@ mod tests {
         let tmp = TempDir::new().unwrap();
 
         let w = Warning {
+            code: "naming_convention".into(),
+            path: "/test".into(),
             ts: "2026-04-14T10:00:00Z".into(),
             file_path: "/test".into(),
             message: "msg".into(),

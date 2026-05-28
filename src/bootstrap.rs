@@ -89,6 +89,9 @@ pub fn bootstrap(data_root: &Path) -> Result<()> {
     // Create .index directory
     let index_dir = data_root.join(".index");
     std::fs::create_dir_all(&index_dir)?;
+    let projections_dir = data_root.join("projections");
+    std::fs::create_dir_all(projections_dir.join("artifacts"))?;
+    std::fs::create_dir_all(projections_dir.join("jobs"))?;
 
     Ok(())
 }
